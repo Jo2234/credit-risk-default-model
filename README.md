@@ -2,7 +2,16 @@
 
 A small credit-risk analytics demo that estimates borrower default probability, explains the main risk drivers, and shows how different approval and rejection thresholds change portfolio outcomes.
 
+**Demo boundary:** synthetic demo data, leakage controls, and a model card are included. This is not a lending system and must not be used for real credit decisions.
+
 This is built as a portfolio project for banking, fintech, credit analytics, and applied ML roles. The point is not to pretend this is a production lending system. The point is to show the full shape of a practical risk workflow: probability scoring, leakage-aware feature design, model evaluation, explainable decisions, and policy tradeoffs.
+
+## Quick Proof
+
+- FastAPI scoring endpoint returns probability of default, decision band, risk grade, model version, warnings, and explanation.
+- Policy simulator turns approve/review/reject thresholds into approval rate, expected default rate, manual-review load, and simplified profit tradeoffs.
+- Model-card endpoint documents target definition, feature exclusions, leakage controls, limitations, and model risk.
+- Tests cover score bounds, policy threshold validation, and model-card leakage documentation.
 
 ## What It Does
 
