@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Credit Risk Default Model</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --surface-soft: #f9fafb;
+      --ink: #172033;
+      --muted: #64748b;
+      --line: #d8dee8;
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --green: #087f5b;
+      --green-bg: #e8f7ef;
+      --amber: #b7791f;
+      --amber-bg: #fff5d8;
+      --red: #c2410c;
+      --red-bg: #fff1ec;
+      --teal: #0f766e;
+      --violet: #6d28d9;
+      --shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; min-width: 320px; }
+    button, input, select { font: inherit; }
+
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 66px;
+      padding: 12px clamp(16px, 4vw, 36px);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(14px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .mark {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 8px;
+      background: #132238;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 760;
+      letter-spacing: 0;
+      flex: 0 0 auto;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 18px; line-height: 1.25; letter-spacing: 0; }
+    .subline { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+    }
+
+    .dot.live { background: var(--green); }
+    .dot.offline { background: var(--red); }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      min-height: calc(100vh - 66px);
+    }
+
+    .side-nav {
+      position: sticky;
+      top: 66px;
+      height: calc(100vh - 66px);
+      padding: 18px 12px;
+      border-right: 1px solid var(--line);
+      background: #ffffff;
+      overflow-y: auto;
+    }
+
+    .side-nav a {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-height: 38px;
+      padding: 9px 10px;
+      color: #334155;
+      text-decoration: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .side-nav a:hover, .side-nav a:focus-visible {
+      background: #eef4ff;
+      color: var(--blue-dark);
+      outline: none;
+    }
+
+    .nav-kicker {
+      margin: 16px 10px 8px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 760;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    main {
+      min-width: 0;
+      padding: 22px clamp(14px, 3vw, 34px) 42px;
+    }
+
+    section + section { margin-top: 24px; }
+
+    .section-title {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 12px;
+    }
+
+    .section-title h2 {
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    .section-title p {
+      max-width: 780px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      gap: 12px;
+    }
+
+    .metric, .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .metric {
+      padding: 14px;
+      min-height: 116px;
+    }
+
+    .metric-label, .eyebrow {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .metric-value {
+      margin-top: 10px;
+      font-size: clamp(22px, 3vw, 32px);
+      line-height: 1.05;
+      font-weight: 790;
+      letter-spacing: 0;
+    }
+
+    .metric-note {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .badge.good { color: var(--green); background: var(--green-bg); }
+    .badge.review { color: var(--amber); background: var(--amber-bg); }
+    .badge.bad { color: var(--red); background: var(--red-bg); }
+    .badge.neutral { color: #334155; background: #eef2f7; }
+    .badge.info { color: var(--blue-dark); background: #e8f0ff; }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.92fr) minmax(360px, 1.08fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .wide-col {
+      display: grid;
+      grid-template-columns: minmax(360px, 1.2fr) minmax(320px, .8fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 16px;
+      min-width: 0;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel h3 {
+      font-size: 15px;
+      letter-spacing: 0;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    input, select {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 10px;
+      outline: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    }
+
+    input[type="range"] {
+      min-height: 28px;
+      padding: 0;
+      accent-color: var(--blue);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 38px;
+      border: 1px solid var(--blue);
+      border-radius: 7px;
+      background: var(--blue);
+      color: #fff;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: var(--blue-dark); border-color: var(--blue-dark); }
+    .btn.secondary {
+      background: #fff;
+      color: #334155;
+      border-color: #cbd5e1;
+    }
+    .btn.secondary:hover { background: #f8fafc; color: var(--blue-dark); }
+
+    .score-layout {
+      display: grid;
+      grid-template-columns: 190px minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+    }
+
+    .gauge {
+      width: 176px;
+      height: 176px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(var(--amber) var(--risk-angle), #e8edf4 0);
+      position: relative;
+      margin: 4px auto;
+    }
+
+    .gauge::after {
+      content: "";
+      position: absolute;
+      inset: 13px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+
+    .gauge-inner {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .probability {
+      display: block;
+      font-size: 34px;
+      font-weight: 820;
+      letter-spacing: 0;
+    }
+
+    .prob-caption {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .driver-list, .monitor-list, .card-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .driver-row {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #edf1f6;
+    }
+
+    .driver-row:last-child { border-bottom: 0; }
+
+    .bar-track {
+      height: 9px;
+      border-radius: 999px;
+      background: #e7edf5;
+      overflow: hidden;
+    }
+
+    .bar {
+      height: 100%;
+      width: var(--w);
+      border-radius: inherit;
+      background: var(--blue);
+    }
+
+    .bar.risk-up { background: var(--red); }
+    .bar.risk-down { background: var(--green); }
+    .bar.warn { background: var(--amber); }
+    .bar.teal { background: var(--teal); }
+    .bar.violet { background: var(--violet); }
+
+    .small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.42;
+    }
+
+    .policy-controls {
+      display: grid;
+      gap: 14px;
+    }
+
+    .range-row {
+      display: grid;
+      gap: 7px;
+    }
+
+    .range-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 760;
+    }
+
+    .portfolio-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .mini-stat {
+      min-height: 86px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface-soft);
+    }
+
+    .mini-stat strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 21px;
+      letter-spacing: 0;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .matrix-cell {
+      min-height: 86px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .matrix-cell strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 23px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .chart {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 12px;
+      min-height: 232px;
+    }
+
+    .chart-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      font-size: 12px;
+      font-weight: 760;
+      color: #334155;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .monitor-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .monitor-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 13px;
+      min-height: 124px;
+    }
+
+    .monitor-card strong {
+      display: block;
+      margin: 8px 0 6px;
+      font-size: 20px;
+    }
+
+    .model-card {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .model-card article {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 14px;
+    }
+
+    .model-card h3 { margin-bottom: 8px; }
+    .model-card ul { margin: 0; padding-left: 18px; }
+    .model-card li { margin: 6px 0; color: #334155; font-size: 13px; line-height: 1.42; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #edf1f6;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .warning-box {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid #fed7aa;
+      border-radius: 8px;
+      background: #fff7ed;
+      color: #9a3412;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .warning-box.visible { display: block; }
+
+    @media (max-width: 1120px) {
+      .overview-grid, .monitor-grid { grid-template-columns: repeat(2, minmax(160px, 1fr)); }
+      .two-col, .wide-col { grid-template-columns: 1fr; }
+      .chart-row { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .app-header { align-items: flex-start; flex-direction: column; }
+      .shell { grid-template-columns: 1fr; }
+      .side-nav {
+        position: static;
+        height: auto;
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+        padding: 10px;
+      }
+      .side-nav a { flex: 0 0 auto; min-height: 34px; }
+      .nav-kicker { display: none; }
+      main { padding: 16px 12px 34px; }
+      .section-title { align-items: flex-start; flex-direction: column; }
+      .overview-grid, .monitor-grid, .portfolio-grid, .model-card, .form-grid { grid-template-columns: 1fr; }
+      .score-layout { grid-template-columns: 1fr; }
+      .driver-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <div class="mark" aria-hidden="true">CR</div>
+      <div>
+        <h1>Credit Risk Default Model</h1>
+        <p class="subline">Borrower scoring, threshold policy, explainability, and model monitoring</p>
+      </div>
+    </div>
+    <div class="status" id="apiStatus"><span class="dot" id="apiDot"></span><span id="apiStatusText">Checking API</span></div>
+  </header>
+
+  <div class="shell">
+    <nav class="side-nav" aria-label="Dashboard sections">
+      <div class="nav-kicker">Workflow</div>
+      <a href="#overview">Overview <span>01</span></a>
+      <a href="#score">Applicant Scoring <span>02</span></a>
+      <a href="#policy">Policy Simulator <span>03</span></a>
+      <a href="#diagnostics">Diagnostics <span>04</span></a>
+      <a href="#monitoring">Monitoring <span>05</span></a>
+      <a href="#model-card">Model Card <span>06</span></a>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <div class="section-title">
+          <div>
+            <h2>Model Overview</h2>
+            <p>Operational view of the demo model and the controls a risk team would use before turning probabilities into lending actions.</p>
+          </div>
+          <span class="badge info" id="modelVersion">credit-risk-demo-v1</span>
+        </div>
+        <div class="overview-grid" id="overviewGrid"></div>
+      </section>
+
+      <section id="score">
+        <div class="section-title">
+          <div>
+            <h2>Applicant Scoring</h2>
+            <p>Inputs are limited to application-time borrower and loan fields. The result is a probability estimate, not a production credit decision.</p>
+          </div>
+        </div>
+        <div class="two-col">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Borrower Profile</h3>
+              <span class="badge neutral">Demo applicant</span>
+            </div>
+            <form id="applicantForm">
+              <div class="form-grid">
+                <label>Loan amount
+                  <input id="loan_amount" name="loan_amount" type="number" min="1000" max="50000" step="500" value="15000" required>
+                </label>
+                <label>Term
+                  <select id="term_months" name="term_months">
+                    <option value="36">36 months</option>
+                    <option value="60">60 months</option>
+                  </select>
+                </label>
+                <label>Interest rate
+                  <input id="interest_rate" name="interest_rate" type="number" min="0" max="1" step="0.001" value="0.132" required>
+                </label>
+                <label>Annual income
+                  <input id="annual_income" name="annual_income" type="number" min="10000" max="350000" step="1000" value="85000" required>
+                </label>
+                <label>Debt-to-income
+                  <input id="debt_to_income" name="debt_to_income" type="number" min="0" max="2" step="0.01" value="0.24" required>
+                </label>
+                <label>Employment length
+                  <input id="employment_length_years" name="employment_length_years" type="number" min="0" max="60" step="1" value="4" required>
+                </label>
+                <label>Home ownership
+                  <select id="home_ownership" name="home_ownership">
+                    <option value="rent">Rent</option>
+                    <option value="mortgage">Mortgage</option>
+                    <option value="own">Own</option>
+                  </select>
+                </label>
+                <label>Purpose
+                  <select id="loan_purpose" name="loan_purpose">
+                    <option value="debt_consolidation">Debt consolidation</option>
+                    <option value="credit_card">Credit card</option>
+                    <option value="home_improvement">Home improvement</option>
+                    <option value="major_purchase">Major purchase</option>
+                    <option value="small_business">Small business</option>
+                  </select>
+                </label>
+                <label>Revolving utilization
+                  <input id="revolving_utilization" name="revolving_utilization" type="number" min="0" max="1.5" step="0.01" value="0.41" required>
+                </label>
+                <label>Open accounts
+                  <input id="open_accounts" name="open_accounts" type="number" min="0" max="60" step="1" value="8" required>
+                </label>
+                <label>Delinquencies, 2 years
+                  <input id="delinquencies_2y" name="delinquencies_2y" type="number" min="0" max="12" step="1" value="0" required>
+                </label>
+              </div>
+              <div class="actions">
+                <button class="btn" type="submit">Score applicant</button>
+                <button class="btn secondary" type="button" id="primeLowRisk">Low risk sample</button>
+                <button class="btn secondary" type="button" id="primeHighRisk">High risk sample</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Score Result</h3>
+              <span class="badge review" id="decisionBadge">Manual review</span>
+            </div>
+            <div class="score-layout">
+              <div class="gauge" id="riskGauge" style="--risk-angle: 43deg">
+                <div class="gauge-inner">
+                  <span class="probability" id="probabilityValue">11.8%</span>
+                  <span class="prob-caption">Default probability</span>
+                </div>
+              </div>
+              <div>
+                <p class="small" id="scoreNarrative">The current applicant sits inside the manual review band using approve below 8% and reject above 20% thresholds.</p>
+                <div class="warning-box" id="scoreWarnings"></div>
+                <div class="driver-list" id="driverList" aria-label="Local explanation"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="policy">
+        <div class="section-title">
+          <div>
+            <h2>Threshold Policy Simulator</h2>
+            <p>Move the approval and rejection thresholds to see how growth, manual review load, expected losses, and missed good borrowers shift.</p>
+          </div>
+        </div>
+        <div class="wide-col">
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Portfolio Impact</h3>
+              <span class="badge neutral" id="thresholdLabel">Approve &lt; 8.0% | Reject &gt; 20.0%</span>
+            </div>
+            <div class="portfolio-grid" id="policyStats"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h3>Policy Controls</h3>
+              <span class="badge info">Live update</span>
+            </div>
+            <div class="policy-controls">
+              <div class="range-row">
+                <div class="range-label"><span>Approve below</span><strong id="approveValue">8.0%</strong></div>
+                <input id="approve_below" type="range" min="1" max="30" step="0.5" value="8">
+              </div>
+              <div class="range-row">
+                <div class="range-label"><span>Reject above</span><strong id="rejectValue">20.0%</strong></div>
+                <input id="reject_above" type="range" min="5" max="55" step="0.5" value="20">
+              </div>
+              <div class="range-row">
+                <div class="range-label"><span>Loss given default</span><strong id="lgdValue">60%</strong></div>
+                <input id="loss_given_default" type="range" min="20" max="90" step="5" value="60">
+              </div>
+              <div class="range-row">
+                <div class="range-label"><span>Manual review cost</span><strong id="reviewValue">$35</strong></div>
+                <input id="manual_review_cost" type="range" min="0" max="150" step="5" value="35">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <div class="panel-head">
+            <h3>Confusion Matrix at Current Policy</h3>
+            <span class="badge neutral">Held-out demo set</span>
+          </div>
+          <div class="matrix" id="confusionMatrix"></div>
+        </div>
+      </section>
+
+      <section id="diagnostics">
+        <div class="section-title">
+          <div>
+            <h2>Model Diagnostics</h2>
+            <p>Metrics are shown alongside calibration and feature importance because the business decision depends on probability quality, not accuracy alone.</p>
+          </div>
+        </div>
+        <div class="chart-row">
+          <div class="chart">
+            <div class="chart-title"><span>ROC curve</span><span id="rocLabel">AUC 0.73</span></div>
+            <svg viewBox="0 0 320 190" role="img" aria-label="ROC curve">
+              <path d="M35 155H300M35 155V18" fill="none" stroke="#cbd5e1" stroke-width="1.2"/>
+              <path d="M35 155L300 18" fill="none" stroke="#d7dee8" stroke-width="1" stroke-dasharray="5 5"/>
+              <path d="M35 155 C70 112, 105 84, 145 64 S230 36, 300 24" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round"/>
+              <text x="34" y="177" fill="#64748b" font-size="11">False positive rate</text>
+              <text x="4" y="26" fill="#64748b" font-size="11" transform="rotate(-90 12 24)">Recall</text>
+            </svg>
+          </div>
+          <div class="chart">
+            <div class="chart-title"><span>Calibration</span><span>Watchlist</span></div>
+            <svg viewBox="0 0 320 190" role="img" aria-label="Calibration chart">
+              <path d="M35 155H300M35 155V18" fill="none" stroke="#cbd5e1" stroke-width="1.2"/>
+              <path d="M35 155L300 18" fill="none" stroke="#d7dee8" stroke-width="1" stroke-dasharray="5 5"/>
+              <path d="M35 151 C75 134, 110 118, 145 91 S230 57, 300 30" fill="none" stroke="#0f766e" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="145" cy="91" r="4" fill="#0f766e"/>
+              <circle cx="230" cy="57" r="4" fill="#0f766e"/>
+              <text x="49" y="177" fill="#64748b" font-size="11">Predicted default probability</text>
+            </svg>
+          </div>
+          <div class="chart">
+            <div class="chart-title"><span>Top feature importance</span><span>Relative</span></div>
+            <div class="driver-list" id="featureImportance"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <div class="panel-head">
+            <h3>Model Comparison</h3>
+            <span class="badge neutral">Baseline vs selected model</span>
+          </div>
+          <div style="overflow-x:auto">
+            <table id="metricsTable"></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="monitoring">
+        <div class="section-title">
+          <div>
+            <h2>Model Monitoring</h2>
+            <p>Operational checks separate the demo from a one-off notebook: drift, calibration, fairness review, and out-of-distribution guardrails are visible.</p>
+          </div>
+        </div>
+        <div class="monitor-grid" id="monitorGrid"></div>
+      </section>
+
+      <section id="model-card">
+        <div class="section-title">
+          <div>
+            <h2>Model Card</h2>
+            <p>Plain-language governance notes for intended use, exclusions, and limitations.</p>
+          </div>
+        </div>
+        <div class="model-card" id="modelCard"></div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const API_BASE = localStorage.getItem("creditRiskApiBase") || "http://localhost:8003";
+    const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+    const number = new Intl.NumberFormat("en-US");
+    const pct = value => `${(Number(value) * 100).toFixed(1)}%`;
+    const pct0 = value => `${Math.round(Number(value) * 100)}%`;
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    let usingFallback = false;
+    let currentScore = null;
+
+    const fallbackMetrics = {
+      model_version: "credit-risk-random_forest-v1",
+      selected_model: "random_forest",
+      target_definition: "1 = default or charge-off equivalent; 0 = fully paid equivalent",
+      models: {
+        logistic_regression: {
+          roc_auc: 0.704,
+          pr_auc: 0.384,
+          brier_score: 0.163,
+          precision_at_20pct: 0.287,
+          recall_at_20pct: 0.612,
+          f1_at_20pct: 0.391
+        },
+        random_forest: {
+          roc_auc: 0.731,
+          pr_auc: 0.421,
+          brier_score: 0.154,
+          precision_at_20pct: 0.315,
+          recall_at_20pct: 0.648,
+          f1_at_20pct: 0.424
+        }
+      }
+    };
+
+    const fallbackModelCard = {
+      model_name: "Credit Risk Default Model",
+      model_version: fallbackMetrics.model_version,
+      intended_use: "Portfolio demo for estimating default probability and exploring threshold policy tradeoffs.",
+      not_intended_for: "Real lending decisions, legal compliance, adverse-action notices, or financial advice.",
+      dataset_source: "Synthetic LendingClub-like demo data generated locally.",
+      features: ["loan_amount", "term_months", "interest_rate", "annual_income", "debt_to_income", "employment_length_years", "home_ownership", "loan_purpose", "revolving_utilization", "open_accounts", "delinquencies_2y"],
+      excluded_leakage_features: ["loan_status", "recoveries", "collection_recovery_fee", "last_payment_date", "total_payment_received"],
+      fairness_considerations: "Protected characteristics are not included; production use would require formal fairness and compliance review.",
+      limitations: ["Synthetic data only.", "Calibration must be rechecked on real held-out data.", "Explanations are directional and should not be read as causation."]
+    };
+
+    const featureImportance = [
+      ["Debt-to-income", 92, "risk-up"],
+      ["Revolving utilization", 78, "risk-up"],
+      ["Interest rate", 66, "warn"],
+      ["Annual income", 55, "risk-down"],
+      ["Delinquencies, 2y", 41, "risk-up"],
+      ["Loan term", 36, "violet"]
+    ];
+
+    const monitoring = [
+      ["Calibration error", "0.031", "Stable, review monthly", "good"],
+      ["Approval rate drift", "3.8%", "Inside current alert band", "good"],
+      ["DTI population shift", "8.6%", "Watch if above 10%", "review"],
+      ["Fairness review", "Required", "No protected fields used; audit still needed", "review"]
+    ];
+
+    function setApiStatus(state, text) {
+      const dot = document.getElementById("apiDot");
+      const label = document.getElementById("apiStatusText");
+      dot.className = `dot ${state}`;
+      label.textContent = text;
+    }
+
+    async function request(path, options = {}) {
+      const response = await fetch(API_BASE + path, {
+        headers: { "Content-Type": "application/json" },
+        ...options
+      });
+      if (!response.ok) throw new Error(`${path} ${response.status}`);
+      return response.json();
+    }
+
+    function collectApplicant() {
+      const form = document.getElementById("applicantForm");
+      const data = Object.fromEntries(new FormData(form).entries());
+      return {
+        loan_amount: Number(data.loan_amount),
+        term_months: Number(data.term_months),
+        interest_rate: Number(data.interest_rate),
+        annual_income: Number(data.annual_income),
+        debt_to_income: Number(data.debt_to_income),
+        employment_length_years: Number(data.employment_length_years),
+        home_ownership: data.home_ownership,
+        loan_purpose: data.loan_purpose,
+        revolving_utilization: Number(data.revolving_utilization),
+        open_accounts: Number(data.open_accounts),
+        delinquencies_2y: Number(data.delinquencies_2y)
+      };
+    }
+
+    function setApplicant(values) {
+      Object.entries(values).forEach(([key, value]) => {
+        const input = document.getElementById(key);
+        if (input) input.value = value;
+      });
+      scoreApplicant();
+    }
+
+    function fallbackScore(applicant) {
+      const incomeEffect = Math.log(Math.max(applicant.annual_income, 1000) / 50000) * -0.34;
+      const logit = -3.05
+        + applicant.debt_to_income * 5.2
+        + applicant.interest_rate * 3.1
+        + applicant.revolving_utilization * 1.35
+        + applicant.delinquencies_2y * 0.2
+        + (applicant.term_months === 60 ? 0.34 : 0)
+        + (applicant.loan_purpose === "small_business" ? 0.18 : 0)
+        + incomeEffect;
+      const probability = 1 / (1 + Math.exp(-logit));
+      const drivers = [];
+      if (applicant.debt_to_income > 0.28) drivers.push({ feature: "debt_to_income", direction: "increases_risk", explanation: "Debt-to-income ratio is above the demo portfolio median." });
+      if (applicant.revolving_utilization > 0.42) drivers.push({ feature: "revolving_utilization", direction: "increases_risk", explanation: "Revolving utilization is elevated versus comparable borrowers." });
+      if (applicant.annual_income > 72000) drivers.push({ feature: "annual_income", direction: "decreases_risk", explanation: "Annual income is above the demo training-set median." });
+      if (applicant.delinquencies_2y > 0) drivers.push({ feature: "delinquencies_2y", direction: "increases_risk", explanation: "Recent delinquencies are associated with higher observed default risk." });
+      if (applicant.term_months === 60) drivers.push({ feature: "term_months", direction: "increases_risk", explanation: "Longer term loans carry higher observed risk in the demo sample." });
+      const decision = probability < 0.08 ? ["approve", "low"] : probability <= 0.20 ? ["manual_review", "medium"] : ["reject", "high"];
+      const warnings = [];
+      if (applicant.debt_to_income > 0.75 || applicant.revolving_utilization > 1.0) warnings.push("Applicant is near or outside the high-risk range of the demo training data.");
+      return {
+        default_probability: probability,
+        decision_band: decision[0],
+        risk_grade: decision[1],
+        top_risk_drivers: drivers.length ? drivers.slice(0, 5) : [{ feature: "profile", direction: "neutral", explanation: "No single feature is far from the demo training distribution." }],
+        model_version: fallbackMetrics.model_version,
+        warnings
+      };
+    }
+
+    function badgeForDecision(decision) {
+      if (decision === "approve") return ["Approve", "good"];
+      if (decision === "reject") return ["Reject", "bad"];
+      return ["Manual review", "review"];
+    }
+
+    function renderScore(score) {
+      const probability = clamp(score.default_probability, 0, 1);
+      const gauge = document.getElementById("riskGauge");
+      const probabilityValue = document.getElementById("probabilityValue");
+      const badge = document.getElementById("decisionBadge");
+      const narrative = document.getElementById("scoreNarrative");
+      const warnings = document.getElementById("scoreWarnings");
+      const [label, tone] = badgeForDecision(score.decision_band);
+      const approve = Number(document.getElementById("approve_below").value) / 100;
+      const reject = Number(document.getElementById("reject_above").value) / 100;
+
+      gauge.style.setProperty("--risk-angle", `${Math.round(probability * 360)}deg`);
+      gauge.style.background = `conic-gradient(${tone === "good" ? "var(--green)" : tone === "bad" ? "var(--red)" : "var(--amber)"} var(--risk-angle), #e8edf4 0)`;
+      probabilityValue.textContent = pct(probability);
+      badge.className = `badge ${tone}`;
+      badge.textContent = `${label} | ${score.risk_grade || "risk"}`;
+      narrative.textContent = `This borrower is classified as ${label.toLowerCase()} under the active policy: approve below ${pct(approve)} and reject above ${pct(reject)}.`;
+
+      warnings.className = score.warnings && score.warnings.length ? "warning-box visible" : "warning-box";
+      warnings.textContent = score.warnings && score.warnings.length ? score.warnings.join(" ") : "";
+
+      document.getElementById("driverList").innerHTML = score.top_risk_drivers.map(driver => {
+        const up = driver.direction === "increases_risk";
+        const down = driver.direction === "decreases_risk";
+        const width = up ? 82 : down ? 62 : 42;
+        const toneClass = up ? "risk-up" : down ? "risk-down" : "teal";
+        return `
+          <div class="driver-row">
+            <div>
+              <strong>${humanize(driver.feature)}</strong>
+              <p class="small">${humanize(driver.direction)}</p>
+            </div>
+            <div>
+              <div class="bar-track"><div class="bar ${toneClass}" style="--w:${width}%"></div></div>
+              <p class="small" style="margin-top:6px">${driver.explanation}</p>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    async function scoreApplicant(event) {
+      if (event) event.preventDefault();
+      const applicant = collectApplicant();
+      try {
+        const score = await request("/score", { method: "POST", body: JSON.stringify(applicant) });
+        usingFallback = false;
+        setApiStatus("live", "API connected");
+        currentScore = score;
+        renderScore(score);
+      } catch (error) {
+        usingFallback = true;
+        setApiStatus("offline", "Demo mode: API offline");
+        currentScore = fallbackScore(applicant);
+        renderScore(currentScore);
+      }
+    }
+
+    function fallbackPolicy(policy) {
+      const points = Array.from({ length: 420 }, (_, index) => {
+        const wave = Math.sin(index * 1.7) * 0.035;
+        const base = 0.025 + ((index * 37) % 100) / 100 * 0.34 + wave;
+        const probability = clamp(base, 0.01, 0.62);
+        const defaulted = (((index * 19) % 100) / 100) < probability;
+        return { probability, defaulted };
+      });
+      const approved = points.filter(point => point.probability < policy.approve_below);
+      const rejected = points.filter(point => point.probability > policy.reject_above);
+      const manual = points.length - approved.length - rejected.length;
+      const falseApproved = approved.filter(point => point.defaulted).length;
+      const trueApproved = approved.length - falseApproved;
+      const trueRejected = rejected.filter(point => point.defaulted).length;
+      const falseRejected = rejected.length - trueRejected;
+      const avgLoan = 17600;
+      const estimatedProfit = trueApproved * avgLoan * 0.08 - falseApproved * avgLoan * policy.loss_given_default - manual * policy.manual_review_cost;
+      return {
+        approval_rate: approved.length / points.length,
+        manual_review_rate: manual / points.length,
+        rejection_rate: rejected.length / points.length,
+        expected_default_rate_approved: approved.length ? falseApproved / approved.length : 0,
+        estimated_profit: estimatedProfit,
+        confusion_matrix: {
+          true_approved: trueApproved,
+          false_approved: falseApproved,
+          true_rejected: trueRejected,
+          false_rejected: falseRejected
+        }
+      };
+    }
+
+    async function simulatePolicy() {
+      const approveSlider = document.getElementById("approve_below");
+      const rejectSlider = document.getElementById("reject_above");
+      let approve = Number(approveSlider.value);
+      let reject = Number(rejectSlider.value);
+      if (approve >= reject) {
+        if (document.activeElement === approveSlider) reject = Math.min(55, approve + 1);
+        else approve = Math.max(1, reject - 1);
+        approveSlider.value = approve;
+        rejectSlider.value = reject;
+      }
+      const policy = {
+        approve_below: approve / 100,
+        reject_above: reject / 100,
+        loss_given_default: Number(document.getElementById("loss_given_default").value) / 100,
+        manual_review_cost: Number(document.getElementById("manual_review_cost").value)
+      };
+
+      document.getElementById("approveValue").textContent = `${approve.toFixed(1)}%`;
+      document.getElementById("rejectValue").textContent = `${reject.toFixed(1)}%`;
+      document.getElementById("lgdValue").textContent = `${Math.round(policy.loss_given_default * 100)}%`;
+      document.getElementById("reviewValue").textContent = money.format(policy.manual_review_cost);
+      document.getElementById("thresholdLabel").textContent = `Approve < ${approve.toFixed(1)}% | Reject > ${reject.toFixed(1)}%`;
+
+      let result;
+      try {
+        result = await request("/policy/simulate", { method: "POST", body: JSON.stringify(policy) });
+        usingFallback = false;
+        setApiStatus("live", "API connected");
+      } catch (error) {
+        usingFallback = true;
+        setApiStatus("offline", "Demo mode: API offline");
+        result = fallbackPolicy(policy);
+      }
+      renderPolicy(result);
+      if (currentScore) renderScore(currentScore);
+    }
+
+    function renderPolicy(result) {
+      const stats = [
+        ["Approved", pct(result.approval_rate), "Share of borrowers automatically approved", "good"],
+        ["Manual review", pct(result.manual_review_rate), "Cases requiring analyst review", "review"],
+        ["Rejected", pct(result.rejection_rate), "High risk applicants declined", "bad"],
+        ["Approved default rate", pct(result.expected_default_rate_approved), "Observed defaults among approved loans", "neutral"],
+        ["Estimated P/L", money.format(result.estimated_profit), "Interest revenue less credit losses and review cost", result.estimated_profit >= 0 ? "good" : "bad"],
+        ["Decision coverage", pct(result.approval_rate + result.rejection_rate), "Automated approval plus rejection share", "info"]
+      ];
+      document.getElementById("policyStats").innerHTML = stats.map(([label, value, note, tone]) => `
+        <div class="mini-stat">
+          <span class="badge ${tone}">${label}</span>
+          <strong>${value}</strong>
+          <p class="small">${note}</p>
+        </div>
+      `).join("");
+
+      const matrix = result.confusion_matrix;
+      const cells = [
+        ["True approved", matrix.true_approved, "Good borrowers approved", "good"],
+        ["False approved", matrix.false_approved, "Defaults approved by policy", "bad"],
+        ["True rejected", matrix.true_rejected, "Defaults blocked by policy", "good"],
+        ["False rejected", matrix.false_rejected, "Good borrowers lost", "review"]
+      ];
+      document.getElementById("confusionMatrix").innerHTML = cells.map(([label, value, note, tone]) => `
+        <div class="matrix-cell">
+          <span class="badge ${tone}">${label}</span>
+          <strong>${number.format(value)}</strong>
+          <p class="small">${note}</p>
+        </div>
+      `).join("");
+    }
+
+    function renderOverview(metrics) {
+      const selected = metrics.models[metrics.selected_model] || Object.values(metrics.models)[0];
+      document.getElementById("modelVersion").textContent = metrics.model_version || fallbackMetrics.model_version;
+      const cards = [
+        ["Selected model", humanize(metrics.selected_model || "random_forest"), "Tree-based challenger selected on ROC-AUC."],
+        ["ROC-AUC", selected.roc_auc.toFixed(3), "Ranking quality on held-out demo set."],
+        ["PR-AUC", selected.pr_auc.toFixed(3), "Useful when defaults are a minority class."],
+        ["Brier score", selected.brier_score.toFixed(3), "Lower is better for probability quality."]
+      ];
+      document.getElementById("overviewGrid").innerHTML = cards.map(([label, value, note]) => `
+        <div class="metric">
+          <div class="metric-label">${label}</div>
+          <div class="metric-value">${value}</div>
+          <div class="metric-note">${note}</div>
+        </div>
+      `).join("");
+      document.getElementById("rocLabel").textContent = `AUC ${selected.roc_auc.toFixed(2)}`;
+      renderMetricsTable(metrics);
+    }
+
+    function renderMetricsTable(metrics) {
+      const rows = Object.entries(metrics.models).map(([model, values]) => `
+        <tr>
+          <td><strong>${humanize(model)}</strong>${model === metrics.selected_model ? " <span class=\"badge info\">selected</span>" : ""}</td>
+          <td>${values.roc_auc.toFixed(3)}</td>
+          <td>${values.pr_auc.toFixed(3)}</td>
+          <td>${values.brier_score.toFixed(3)}</td>
+          <td>${values.precision_at_20pct.toFixed(3)}</td>
+          <td>${values.recall_at_20pct.toFixed(3)}</td>
+          <td>${values.f1_at_20pct.toFixed(3)}</td>
+        </tr>
+      `).join("");
+      document.getElementById("metricsTable").innerHTML = `
+        <thead>
+          <tr><th>Model</th><th>ROC-AUC</th><th>PR-AUC</th><th>Brier</th><th>Precision at 20%</th><th>Recall at 20%</th><th>F1 at 20%</th></tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      `;
+    }
+
+    function renderFeatureImportance() {
+      document.getElementById("featureImportance").innerHTML = featureImportance.map(([label, width, tone]) => `
+        <div>
+          <div class="range-label"><span>${label}</span><strong>${width}</strong></div>
+          <div class="bar-track"><div class="bar ${tone}" style="--w:${width}%"></div></div>
+        </div>
+      `).join("");
+    }
+
+    function renderMonitoring() {
+      document.getElementById("monitorGrid").innerHTML = monitoring.map(([label, value, note, tone]) => `
+        <div class="monitor-card">
+          <span class="badge ${tone}">${label}</span>
+          <strong>${value}</strong>
+          <p class="small">${note}</p>
+        </div>
+      `).join("");
+    }
+
+    function renderModelCard(card) {
+      const list = values => `<ul>${values.map(item => `<li>${item}</li>`).join("")}</ul>`;
+      document.getElementById("modelCard").innerHTML = `
+        <article>
+          <h3>Intended Use</h3>
+          <p class="small">${card.intended_use}</p>
+        </article>
+        <article>
+          <h3>Not Intended For</h3>
+          <p class="small">${card.not_intended_for}</p>
+        </article>
+        <article>
+          <h3>Features Used</h3>
+          ${list(card.features.map(humanize))}
+        </article>
+        <article>
+          <h3>Leakage Exclusions</h3>
+          ${list(card.excluded_leakage_features.map(humanize))}
+        </article>
+        <article>
+          <h3>Fairness Considerations</h3>
+          <p class="small">${card.fairness_considerations}</p>
+        </article>
+        <article>
+          <h3>Known Limitations</h3>
+          ${list(card.limitations)}
+        </article>
+      `;
+    }
+
+    function humanize(value) {
+      return String(value || "")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+    }
+
+    async function loadMetrics() {
+      try {
+        const metrics = await request("/model/metrics");
+        usingFallback = false;
+        setApiStatus("live", "API connected");
+        renderOverview(metrics);
+      } catch (error) {
+        usingFallback = true;
+        setApiStatus("offline", "Demo mode: API offline");
+        renderOverview(fallbackMetrics);
+      }
+    }
+
+    async function loadModelCard() {
+      try {
+        const card = await request("/model/card");
+        renderModelCard({ ...fallbackModelCard, ...card });
+      } catch (error) {
+        renderModelCard(fallbackModelCard);
+      }
+    }
+
+    function bindEvents() {
+      document.getElementById("applicantForm").addEventListener("submit", scoreApplicant);
+      document.getElementById("primeLowRisk").addEventListener("click", () => setApplicant({
+        loan_amount: 9000,
+        term_months: 36,
+        interest_rate: 0.082,
+        annual_income: 124000,
+        debt_to_income: 0.12,
+        employment_length_years: 9,
+        home_ownership: "mortgage",
+        loan_purpose: "credit_card",
+        revolving_utilization: 0.19,
+        open_accounts: 11,
+        delinquencies_2y: 0
+      }));
+      document.getElementById("primeHighRisk").addEventListener("click", () => setApplicant({
+        loan_amount: 32000,
+        term_months: 60,
+        interest_rate: 0.246,
+        annual_income: 48000,
+        debt_to_income: 0.68,
+        employment_length_years: 1,
+        home_ownership: "rent",
+        loan_purpose: "small_business",
+        revolving_utilization: 0.93,
+        open_accounts: 5,
+        delinquencies_2y: 2
+      }));
+      ["approve_below", "reject_above", "loss_given_default", "manual_review_cost"].forEach(id => {
+        document.getElementById(id).addEventListener("input", simulatePolicy);
+      });
+    }
+
+    async function init() {
+      bindEvents();
+      renderFeatureImportance();
+      renderMonitoring();
+      await Promise.all([loadMetrics(), loadModelCard()]);
+      await Promise.all([scoreApplicant(), simulatePolicy()]);
+      if (usingFallback) setApiStatus("offline", "Demo mode: API offline");
+    }
+
+    init();
+  </script>
+</body>
+</html>
