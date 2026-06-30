@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
 
 import backend.main as backend
+from backend.modeling import ARTIFACT_METADATA_PATH, train_demo_model, training_frame_hash
 
 
 def test_feature_schema_excludes_post_origination_leakage_fields():
@@ -180,6 +184,7 @@ def test_score_rejects_invalid_applicant_inputs(client, sample_applicant, field,
     assert field in response.text
 
 
+
 def test_model_metrics_and_card_document_business_contract(client):
     metrics_response = client.get("/model/metrics")
     card_response = client.get("/model/card")
@@ -194,8 +199,64 @@ def test_model_metrics_and_card_document_business_contract(client):
     assert metrics["target_definition"] == "1 = default or charge-off equivalent; 0 = fully paid equivalent"
     assert {"roc_auc", "pr_auc", "brier_score", "precision_at_20pct", "recall_at_20pct", "f1_at_20pct"} <= set(selected_metrics)
     assert card["features"] == backend.FEATURES
+    assert card["artifact_metadata"]["training_hash_sha256"] == metrics["artifact_metadata"]["training_hash_sha256"]
     assert "loan_status" in card["excluded_leakage_features"]
     assert "Real lending decisions or legal compliance." == card["not_intended_for"]
+
+
+def test_artifact_metadata_is_persisted_and_reproducible(client):
+    response = client.get("/model/metrics")
+    assert response.status_code == 200
+    metadata = response.json()["artifact_metadata"]
+
+    assert ARTIFACT_METADATA_PATH.exists()
+    persisted = json.loads(ARTIFACT_METADATA_PATH.read_text(encoding="utf-8"))
+    assert persisted == metadata
+    assert metadata["artifact_type"] == "in-memory sklearn pipeline with persisted metadata sidecar"
+    assert metadata["training_rows"] == 1800
+    assert metadata["holdout_rows"] == 600
+    assert re.fullmatch(r"[0-9a-f]{64}", metadata["training_hash_sha256"])
+    assert re.fullmatch(r"[0-9a-f]{64}", metadata["artifact_metadata_hash_sha256"])
+
+    retrained = train_demo_model()
+    assert retrained.artifact_metadata["training_hash_sha256"] == metadata["training_hash_sha256"]
+    assert retrained.artifact_metadata["feature_schema_hash_sha256"] == metadata["feature_schema_hash_sha256"]
+
+
+def test_training_hash_changes_when_training_labels_change():
+    frame = backend.ARTIFACT.training_frame.head(8).copy()
+    baseline_target = backend.DATA.loc[frame.index, "default"].reset_index(drop=True)
+    changed_target = baseline_target.copy()
+    changed_target.iloc[0] = 1 - int(changed_target.iloc[0])
+
+    assert training_frame_hash(frame, baseline_target) != training_frame_hash(frame, changed_target)
+
+
+def test_calibration_fairness_proxy_and_threshold_stress_are_documented(client):
+    response = client.get("/model/metrics")
+    assert response.status_code == 200
+    diagnostics = response.json()["selected_model_diagnostics"]
+
+    calibration_curve = diagnostics["calibration_curve"]
+    assert len(calibration_curve) >= 6
+    assert all(0 <= point["mean_predicted_probability"] <= 1 for point in calibration_curve)
+    assert all(0 <= point["observed_default_rate"] <= 1 for point in calibration_curve)
+
+    proxy_review = diagnostics["proxy_group_review"]
+    assert set(proxy_review) == {"home_ownership", "loan_purpose"}
+    for groups in proxy_review.values():
+        assert groups
+        assert sum(group["count"] for group in groups) == len(backend.X_TEST)
+        assert all(0 <= group["approval_rate_at_8pct"] <= 1 for group in groups)
+        assert all(0 <= group["mean_predicted_default_probability"] <= 1 for group in groups)
+
+    threshold_stress = diagnostics["threshold_stress"]
+    approval_rates = [scenario["approval_rate"] for scenario in threshold_stress]
+    rejection_rates = [scenario["rejection_rate"] for scenario in threshold_stress]
+    assert approval_rates == sorted(approval_rates)
+    assert rejection_rates == sorted(rejection_rates, reverse=True)
+    for scenario in threshold_stress:
+        assert scenario["approval_rate"] + scenario["manual_review_rate"] + scenario["rejection_rate"] == pytest.approx(1.0)
 
 
 def test_health_endpoint(client):

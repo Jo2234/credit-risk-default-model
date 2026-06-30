@@ -1,0 +1,26 @@
+{
+  "artifact_metadata_hash_sha256": "0887ef31210d5479b81da26185e9f05566bb4949982618dee2473700b9067ad0",
+  "artifact_type": "in-memory sklearn pipeline with persisted metadata sidecar",
+  "created_at_utc": "deterministic synthetic demo generated at application startup",
+  "disclaimer": "Synthetic demo artifact metadata only; not valid for real lending decisions.",
+  "feature_schema_hash_sha256": "d2c24e50448f02e68acb9d9020a98e6d87e6597968e8c6c86dafc7359fc7155e",
+  "holdout_hash_sha256": "86a79dcbe49f56de1216e3dcebbb0f9414ad7a882dad47bd6c099047cba19406",
+  "holdout_rows": 600,
+  "libraries": {
+    "numpy": "1.26.4",
+    "pandas": "2.3.3",
+    "python_requires": ">=3.10",
+    "scikit_learn": "1.5.2"
+  },
+  "metadata_schema_version": "1.0",
+  "model_version": "credit-risk-logistic_regression-v1-demo",
+  "selected_model": "logistic_regression",
+  "split": {
+    "random_state": 11,
+    "stratified": true,
+    "test_size": 0.25
+  },
+  "synthetic_data_generator": "backend.data.generate_synthetic_loan_data(n_rows=2400, seed=7)",
+  "training_hash_sha256": "1dc8d79457db8b3cff6dacf7730436463ea99f2bd105e2ccefadbc8ec89ef98e",
+  "training_rows": 1800
+}

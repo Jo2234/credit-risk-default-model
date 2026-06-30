@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestClassifier
@@ -46,6 +50,74 @@ class ModelArtifact:
     feature_importance: list[dict[str, Any]]
     reference_values: dict[str, Any]
     input_ranges: dict[str, Any]
+    artifact_metadata: dict[str, Any]
+
+
+ARTIFACT_METADATA_PATH = Path(__file__).resolve().parents[1] / "artifacts" / "model_metadata.json"
+
+
+def stable_json_hash(payload: Any) -> str:
+    """Return a deterministic SHA-256 hash for JSON-serializable metadata."""
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def training_frame_hash(frame: pd.DataFrame, target: pd.Series) -> str:
+    """Hash the exact split used by a demo model artifact."""
+    training_payload = frame.copy().reset_index(drop=True)
+    training_payload["default"] = target.reset_index(drop=True).astype(int)
+    records = training_payload.sort_index(axis=1).to_dict(orient="records")
+    return stable_json_hash(records)
+
+
+def build_artifact_metadata(
+    *,
+    selected_model: str,
+    metrics: dict[str, Any],
+    x_train: pd.DataFrame,
+    y_train: pd.Series,
+    x_test: pd.DataFrame,
+    y_test: pd.Series,
+) -> dict[str, Any]:
+    training_hash = training_frame_hash(x_train, y_train)
+    holdout_hash = training_frame_hash(x_test, y_test)
+    metadata = {
+        "artifact_type": "in-memory sklearn pipeline with persisted metadata sidecar",
+        "metadata_schema_version": "1.0",
+        "model_version": metrics["model_version"],
+        "selected_model": selected_model,
+        "created_at_utc": "deterministic synthetic demo generated at application startup",
+        "training_hash_sha256": training_hash,
+        "holdout_hash_sha256": holdout_hash,
+        "feature_schema_hash_sha256": stable_json_hash(
+            {
+                "features": FEATURES,
+                "numeric_features": NUMERIC_FEATURES,
+                "categorical_features": CATEGORICAL_FEATURES,
+                "excluded_leakage_features": LEAKAGE_EXCLUDED_FEATURES,
+            }
+        ),
+        "training_rows": int(len(x_train)),
+        "holdout_rows": int(len(x_test)),
+        "synthetic_data_generator": "backend.data.generate_synthetic_loan_data(n_rows=2400, seed=7)",
+        "split": {"test_size": 0.25, "stratified": True, "random_state": 11},
+        "libraries": {
+            "python_requires": ">=3.10",
+            "numpy": np.__version__,
+            "pandas": pd.__version__,
+            "scikit_learn": sklearn.__version__,
+        },
+        "disclaimer": "Synthetic demo artifact metadata only; not valid for real lending decisions.",
+    }
+    metadata["artifact_metadata_hash_sha256"] = stable_json_hash(
+        {key: value for key, value in metadata.items() if key != "artifact_metadata_hash_sha256"}
+    )
+    return metadata
+
+
+def persist_artifact_metadata(metadata: dict[str, Any], path: Path = ARTIFACT_METADATA_PATH) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(metadata, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def build_preprocessor() -> ColumnTransformer:
@@ -109,7 +181,50 @@ def selected_model_diagnostics(model: Any, x_test: pd.DataFrame, y_test: pd.Seri
             "p95": float(np.quantile(probabilities, 0.95)),
         },
         "default_rate": float(y_test.mean()),
+        "proxy_group_review": proxy_group_review(x_test, probabilities),
+        "threshold_stress": threshold_stress(probabilities),
     }
+
+
+def proxy_group_review(x_test: pd.DataFrame, probabilities: np.ndarray) -> dict[str, list[dict[str, Any]]]:
+    """Summarize score behavior by non-protected synthetic proxy groups.
+
+    These are not protected-class fairness results. They provide a repeatable check
+    that score and approval rates are inspectable by application fields before any
+    real fairness analysis is attempted.
+    """
+    review: dict[str, list[dict[str, Any]]] = {}
+    scored = x_test.copy()
+    scored["predicted_default_probability"] = probabilities
+    scored["approved_at_8pct"] = probabilities < 0.08
+    for feature in ["home_ownership", "loan_purpose"]:
+        groups = []
+        for value, group in scored.groupby(feature, sort=True):
+            groups.append(
+                {
+                    "feature_value": str(value),
+                    "count": int(len(group)),
+                    "mean_predicted_default_probability": float(group["predicted_default_probability"].mean()),
+                    "approval_rate_at_8pct": float(group["approved_at_8pct"].mean()),
+                }
+            )
+        review[feature] = groups
+    return review
+
+
+def threshold_stress(probabilities: np.ndarray) -> list[dict[str, float]]:
+    """Summarize deterministic approval/review/rejection rates over threshold pairs."""
+    scenarios = [(0.05, 0.15), (0.08, 0.20), (0.10, 0.25), (0.12, 0.30)]
+    return [
+        {
+            "approve_below": approve_below,
+            "reject_above": reject_above,
+            "approval_rate": float((probabilities < approve_below).mean()),
+            "manual_review_rate": float(((probabilities >= approve_below) & (probabilities <= reject_above)).mean()),
+            "rejection_rate": float((probabilities > reject_above).mean()),
+        }
+        for approve_below, reject_above in scenarios
+    ]
 
 
 def compute_feature_importance(model: Any, x_test: pd.DataFrame, y_test: pd.Series) -> list[dict[str, Any]]:
@@ -212,6 +327,16 @@ def train_demo_model() -> ModelArtifact:
             "excluded_leakage_features": LEAKAGE_EXCLUDED_FEATURES,
         },
     }
+    artifact_metadata = build_artifact_metadata(
+        selected_model=best_name,
+        metrics=metrics,
+        x_train=x_train,
+        y_train=y_train,
+        x_test=x_test,
+        y_test=y_test,
+    )
+    metrics["artifact_metadata"] = artifact_metadata
+    persist_artifact_metadata(artifact_metadata)
     return ModelArtifact(
         pipeline=best_model,
         training_frame=x_train.copy(),
@@ -221,4 +346,5 @@ def train_demo_model() -> ModelArtifact:
         feature_importance=importance,
         reference_values=reference_profile(x_train),
         input_ranges=training_ranges(x_train),
+        artifact_metadata=artifact_metadata,
     )

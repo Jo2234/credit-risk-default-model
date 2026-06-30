@@ -19,6 +19,7 @@ The current implementation trains at application startup on synthetic LendingClu
 | Metrics route | `GET /model/metrics` |
 | Documentation route | `GET /model/card` |
 | Training data | Synthetic LendingClub-like records generated locally |
+| Artifact metadata | Persisted at `artifacts/model_metadata.json` and exposed in metrics/model-card responses |
 | Intended audience | Credit analytics, fintech, banking, and applied ML portfolio reviewers |
 
 ## Intended Use
@@ -116,6 +117,19 @@ The current training flow:
 
 The preprocessing pipeline standardizes numeric fields and one-hot encodes categorical fields. The same fitted pipeline is used for scoring.
 
+## Reproducibility and Artifact Metadata
+
+Each deterministic demo training run writes a metadata sidecar to `artifacts/model_metadata.json`. The sidecar records:
+
+- Model version and selected model family.
+- Training and holdout row counts.
+- Synthetic data generator and train/test split parameters.
+- Feature schema hash and leakage-exclusion list hash inputs.
+- SHA-256 hashes for the training split, holdout split, and metadata document.
+- Library versions used to create the artifact.
+
+The persisted sidecar describes the in-memory sklearn pipeline; it is not a production registry, not a serialized model binary, and not evidence of real-world model validity. It is included so reviewers can tie reported synthetic metrics to a reproducible training hash and feature schema.
+
 ## Evaluation
 
 The API reports metrics for each trained candidate model:
@@ -138,7 +152,7 @@ The model returns probabilities, so calibration matters. In a real deployment, t
 - Brier score tracking by model version.
 - Platt scaling or isotonic regression if probabilities are poorly calibrated.
 
-The current synthetic demo exposes Brier score but does not yet fit a separate calibration layer.
+The current synthetic demo exposes Brier score and an 8-bin calibration curve for the selected model. The random-forest candidate is calibrated with isotonic calibration before selection. These diagnostics support software review only and are not evidence of real-world calibration.
 
 ## Decision Policy
 
@@ -173,6 +187,8 @@ The profit estimate uses simplified assumptions:
 
 This is a teaching device for policy tradeoffs, not a production finance model.
 
+The selected model diagnostics also include a deterministic threshold stress table over several approve/reject threshold pairs. Tests assert that approval rates increase and rejection rates decrease as the illustrative thresholds loosen.
+
 ## Explainability
 
 The scoring endpoint returns local explanations for the applicant. Current explanations are rule-based comparisons against the synthetic training distribution, for example:
@@ -188,7 +204,9 @@ For a real model version, local and global explainability should be upgraded to 
 
 The demo does not include protected characteristics such as race, ethnicity, religion, sex, marital status, age beyond legally permissible treatment, disability, or national origin.
 
-Excluding protected characteristics is not enough to prove fairness. A real credit model would require:
+Excluding protected characteristics is not enough to prove fairness. The demo exposes a non-protected proxy-group review by `home_ownership` and `loan_purpose` with counts, mean predicted default probabilities, and approval rates at the illustrative 8% threshold. This is a deterministic transparency check, not a legal fairness conclusion.
+
+A real credit model would require:
 
 - Protected-class or proxy-group analysis where legally and ethically appropriate.
 - Disparate impact review.
@@ -210,7 +228,7 @@ Excluding protected characteristics is not enough to prove fairness. A real cred
 - Synthetic training data means model performance is not evidence of real-world accuracy.
 - No external dataset version is currently tracked.
 - No experiment tracking or model registry is included.
-- No persisted model artifact is saved between runs.
+- A deterministic model metadata sidecar is persisted, but no full serialized model binary or production model registry is included.
 - No out-of-time validation is included.
 - No production drift monitoring is included.
 - No formal SHAP explainability layer is implemented yet.

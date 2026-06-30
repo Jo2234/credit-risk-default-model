@@ -102,6 +102,7 @@ def metrics() -> dict[str, Any]:
         "models": ARTIFACT.metrics["models"],
         "selected_model_diagnostics": ARTIFACT.metrics["selected_model_diagnostics"],
         "policy_reference": ARTIFACT.metrics["policy_reference"],
+        "artifact_metadata": ARTIFACT.artifact_metadata,
     }
 
 
@@ -123,6 +124,7 @@ def model_card() -> dict[str, Any]:
         "intended_use": "Portfolio demo for estimating default probability, explaining model drivers, and simulating credit policy thresholds.",
         "not_intended_for": "Real lending decisions or legal compliance.",
         "dataset_source": ARTIFACT.metrics["data"]["dataset_source"],
+        "artifact_metadata": ARTIFACT.artifact_metadata,
         "features": FEATURES,
         "data_dictionary": DATA_DICTIONARY,
         "excluded_leakage_features": LEAKAGE_EXCLUDED_FEATURES,

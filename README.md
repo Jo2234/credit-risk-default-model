@@ -11,7 +11,7 @@ This is built as a portfolio project for banking, fintech, credit analytics, and
 - FastAPI scoring endpoint returns probability of default, decision band, risk grade, model version, warnings, and explanation.
 - Policy simulator turns approve/review/reject thresholds into approval rate, expected default rate, manual-review load, and simplified profit tradeoffs.
 - Model-card endpoint documents target definition, feature exclusions, leakage controls, limitations, and model risk.
-- Tests cover score bounds, policy threshold validation, and model-card leakage documentation.
+- Tests cover score bounds, policy threshold validation, model-card leakage documentation, persisted artifact metadata, deterministic training hashes, calibration diagnostics, proxy-group review, and threshold stress behavior.
 
 ## What It Does
 
@@ -62,6 +62,7 @@ From the repository root:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+# or: pip install -e '.[dev]'
 ```
 
 Run the API:
@@ -159,6 +160,30 @@ These thresholds are not recommendations. They are demo assumptions used to show
 - The selected model is chosen by ROC-AUC among the trained candidates.
 - Probability quality must be judged with calibration metrics, not ranking metrics alone.
 
+## Reproducibility and Artifact Metadata
+
+At application startup the demo trains a deterministic synthetic model and writes a metadata sidecar to `artifacts/model_metadata.json`. The sidecar describes the in-memory sklearn pipeline, selected model family, feature schema, train/holdout row counts, library versions, and SHA-256 hashes for the training split, holdout split, feature schema, and metadata itself.
+
+The sidecar is not a production model registry. It exists so reviewers can verify that the synthetic training run is reproducible and that model metrics are tied to a documented feature schema and training hash.
+
+The same metadata is exposed through:
+
+```bash
+curl http://localhost:8003/model/metrics
+curl http://localhost:8003/model/card
+```
+
+## Calibration, Proxy-Group Review, and Threshold Stress
+
+The selected model diagnostics include:
+
+- An 8-bin calibration curve with mean predicted probability and observed default rate.
+- Score distribution quantiles for the held-out synthetic sample.
+- A non-protected proxy-group review by `home_ownership` and `loan_purpose` showing count, mean predicted default probability, and approval rate at the illustrative 8% approval threshold.
+- A threshold stress table for several approve/reject threshold pairs.
+
+These checks are deterministic tests and documentation aids. They are not evidence that the model is fair or calibrated for real lending. Real use would require legally appropriate protected-class analysis, out-of-time validation, and compliance review.
+
 ## Leakage Controls
 
 The project explicitly excludes fields that would leak future loan performance into the prediction:
@@ -176,7 +201,7 @@ For a real LendingClub-style dataset, every candidate feature should be categori
 - The current model is trained on synthetic data, so the metrics are useful for software validation but not for real-world credit validation.
 - The explanation logic is a lightweight demo based on feature comparisons, not a full SHAP implementation.
 - The policy simulator uses simplified economics: average loan amount, assumed interest revenue, loss given default, and manual-review cost.
-- The API does not persist scoring history, model artifacts, dataset versions, or experiment runs.
+- The API persists a deterministic model metadata sidecar, but does not persist scoring history, full serialized model binaries, dataset versions, or experiment runs.
 - The project is not compliant with lending regulations and must not be used for real credit decisions.
 
 ## Model Risk
@@ -206,6 +231,8 @@ The current tests cover:
 - Score endpoint probability bounds.
 - Policy threshold validation.
 - Model-card leakage documentation.
+- Artifact metadata persistence and reproducible training hashes.
+- Calibration diagnostics, proxy-group review, and threshold stress monotonicity.
 
 ## Portfolio Narrative
 

@@ -78,3 +78,4 @@ class MetricsResponse(BaseModel):
     models: dict[str, dict[str, Any]]
     selected_model_diagnostics: dict[str, Any]
     policy_reference: dict[str, Any]
+    artifact_metadata: dict[str, Any]
